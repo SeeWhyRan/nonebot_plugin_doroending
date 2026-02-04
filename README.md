@@ -145,19 +145,24 @@ nonebot-plugin-doroending/
 
 如果您遇到任何问题或有建议，请通过以下方式反馈：
 
-1. [提交 Issue](https://github.com/yourname/nonebot-plugin-doroending/issues)
+1. [提交 Issue](https://github.com/SeeWhyRan/nonebot_plugin_doroending/issues)
 2. 在 NoneBot 官方社区讨论
 3. 联系作者邮箱
 
 ## 💡 TODO
 
 - 发布到社区
-- 初次安装插件时的初始化
 - 可提供下载的预设结局库
 - 对话交互式添加结局
-- 固定每个人每天的结局
+- 固定每个人的结局改成固定每个人每天的结局
+- 单文件改为多文件
 
 ## 📈 版本历史
+
+### v0.1.1 (2026-2-5)
+
+- 将读取、保存等一系列管理doro结局数据的操作封装到一个类里，为后续编写做准备
+- 支持内存中保存每个用户doro结局，为每天固定结局做准备
 
 ### v0.1.0 (2026-2-4)
 
