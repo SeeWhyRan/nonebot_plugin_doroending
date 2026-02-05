@@ -80,8 +80,8 @@ class DoroEndingManager:
     SAVE_FAILED_MSG = "图片保存失败'{}'"  # 图片保存失败模板
     def __init__(
             self,
-            data_file: str = "./datas/doroendings.json",
-            pic_dir: str = "./datas/DoroEndingPic",
+            data_file: str = "./data/nonebot_plugin_doroending/doroendings.json",
+            pic_dir: str = "./data/nonebot_plugin_doroending/DoroEndingPic",
             image_config: Optional[ImageConfig] = None
             ) -> None:
         self.data_file = Path(data_file)

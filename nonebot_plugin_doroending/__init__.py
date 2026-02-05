@@ -61,13 +61,13 @@ async def startup():
     # 插件初始化
     global _doro_manager  # noqa: PLW0602
     global user_doro_map  # noqa: PLW0603
-    global current_date  # noqa: PLW0602
+    global current_date  # noqa: PLW0603
     loaded = await _doro_manager.load_from_file()
     # 如果本地没有数据，则尝试从github下载
     if not loaded:
         logger.warning("本地无结局数据 即将从github上下载...")
         result = download_doro_assets(
-            target_dir="./datas",
+            target_dir="./data/nonebot_plugin_doroending",
             token=config.GITHUB_TOKEN
             )
         logger.info(f"最终结果: {result['success']}")
@@ -81,24 +81,14 @@ async def startup():
     logger.debug(_doro_manager.get_statistics())
     logger.debug("结局列表如下")
     # 加载日期记录
-    date_record = read_dict_from_json(
-        filename="./datas/doro_date_record.json"
-    )
-    current_date = date_record.get("date", "")
-    # 检查日期是否过期
-    today = datetime.now().strftime("%Y-%m-%d")
-    if current_date != today:
-        logger.info(f"日期已过期，清空用户结局映射。原日期: {current_date}, 今天: {today}")
-        user_doro_map.clear()
-        current_date = today
-        # 保存新的日期记录
-        write_dict_to_json({"date": current_date}, filename="./datas/doro_date_record.json")
-        # 清空用户映射文件
-        write_dict_to_json({}, filename="./datas/user_doro_map.json")
+    current_date = read_dict_from_json(
+        filename="./data/nonebot_plugin_doroending/doro_date_record.json"
+        ).get("date", "")
     # 加载文件中保存的用户结局映射
     user_doro_map = read_dict_from_json(
-        filename="./datas/user_doro_map.json"
+        filename="./data/nonebot_plugin_doroending/user_doro_map.json"
         )
+    logger.info(f"加载日期记录: {current_date}")
     logger.info(f"已加载用户结局映射记录数: {len(user_doro_map)}")
     logger.debug(f"当前用户结局映射: {user_doro_map}")
     logger.debug(_doro_manager.get_all_endings())
@@ -116,8 +106,20 @@ list_doro_endings = on_command("列出doro结局",  permission=SUPERUSER)
 async def handle_doro_ending(
     event: MessageEvent
 ) -> None:
-    # 判断是否已有记录
+    # 获取当前日期
+    global current_date  # noqa: PLW0603
     global _doro_manager  # noqa: PLW0602
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 如果日期已过期，清空用户结局映射并更新日期
+    if current_date != today:
+        logger.info(f"日期已过期，清空用户结局映射。原日期: {current_date}, 今天: {today}")
+        user_doro_map.clear()
+        current_date = today
+        # 保存新的日期记录
+        write_dict_to_json({"date": current_date}, filename="./data/nonebot_plugin_doroending/doro_date_record.json")
+        # 清空用户映射文件
+        write_dict_to_json({}, filename="./data/nonebot_plugin_doroending/user_doro_map.json")
+    # 判断是否已有记录
     # 日志记录当前用户ID和现有的用户结局映射
     logger.debug(f"当前用户ID: {event.user_id}")
     logger.debug(f"现有用户结局映射: {user_doro_map}")
@@ -131,7 +133,7 @@ async def handle_doro_ending(
         if doro_info:
             # 找到结局，返回图片
             abs_image_path = await anyio.Path(
-                f"./datas/DoroEndingPic/{doro_info.pic}"
+                f"./data/nonebot_plugin_doroending/DoroEndingPic/{doro_info.pic}"
                 ).resolve()
             await get_doro_ending.finish(MessageSegment.image(f"file://{abs_image_path}"))
         else:
@@ -149,12 +151,12 @@ async def handle_doro_ending(
         # 保存映射到文件
         write_dict_to_json(
             user_doro_map,
-            filename="./datas/user_doro_map.json"
+            filename="./data/nonebot_plugin_doroending/user_doro_map.json"
             )
         logger.debug(f"记录用户（{event.user_id}）的结局ID为 {doro_info.id}")
         # 构建图片路径
         image_path = await anyio.Path(
-            f"./datas/DoroEndingPic/{doro_info.pic}"
+            f"./data/nonebot_plugin_doroending/DoroEndingPic/{doro_info.pic}"
             ).resolve()
         # 返回图片消息
         await get_doro_ending.finish(MessageSegment.image(f"file://{image_path}"))
@@ -308,7 +310,7 @@ async def send_forward_msg(
             "send_private_forward_msg", user_id=event.user_id, messages=messages
         )
 
-def write_dict_to_json(data_dict, filename="./datas/user_doro_map.json"):
+def write_dict_to_json(data_dict, filename="./data/nonebot_plugin_doroending/user_doro_map.json"):
     """
     将Python字典写入JSON文件
     Args:
@@ -322,7 +324,7 @@ def write_dict_to_json(data_dict, filename="./datas/user_doro_map.json"):
     except Exception as e:
         logger.error(f"写入文件时出错: {e}")
 
-def read_dict_from_json(filename="user_doro_map.json"):
+def read_dict_from_json(filename="./data/nonebot_plugin_doroending/user_doro_map.json"):
     """
     从JSON文件中读取Python字典
     Args:

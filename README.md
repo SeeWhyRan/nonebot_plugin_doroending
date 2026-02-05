@@ -176,6 +176,7 @@ nonebot-plugin-doroending/
 ### v0.1.2 (2026-2-5)
 - **新增**：实现真正的每日固定结局
 - **新增**：准备了结局图片文件，启动插件时检测到没有资源会自动从[Github](https://github.com/SeeWhyRan/doroending_pic_assets)或[Gitee](https://gitee.com/seewhy_ran/doroending_pic_assets)上下载
+- **优化**：将需要保存的数据统一放在./data/nonebot_plugin_doroending/下，与大多数插件统一
 
 ### v0.1.1 (2026-2-5)
 - **重构**：将数据操作封装为 `DoroDataManager` 类，提升代码可维护性

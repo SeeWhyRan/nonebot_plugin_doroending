@@ -382,7 +382,7 @@ def main():
     YOUR_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # 替换为你的token或留空
     # 测试下载，启用Gitee备用源
     result = download_doro_assets(
-        target_dir="./datas",
+        target_dir="./data/nonebot_plugin_doroending",
         token=YOUR_TOKEN,
         use_gitee_fallback=True,
         gitee_owner="seewhy_ran",
