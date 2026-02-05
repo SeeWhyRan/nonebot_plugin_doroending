@@ -15,7 +15,7 @@
 #### 从 PyPI 安装
 
 ```shell
-
+pip install nonebot-plugin-doroending
 ```
 
 #### 从 git仓库 安装
@@ -73,7 +73,7 @@ SUPERUSER="123456789"
 Bot： [发送随机结局图片]
 ```
 
-![今日doro结局.png](./picture/今日doro结局.png)
+![今日doro结局.png](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/今日doro结局.png)
 
 #### 2. 添加新结局
 
@@ -87,9 +87,9 @@ Bot：
 	图片: 图片url
 ```
 
-![添加doro结局1.png](./picture/添加doro结局1.png)
+![添加doro结局1.png](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/添加doro结局1.png)
 
-![添加doro结局2.png](./picture/添加doro结局2.png)
+![添加doro结局2.png](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/添加doro结局2.png)
 
 **注意事项：**
 
@@ -108,7 +108,7 @@ Bot：
 	图片文件: 00000003_fired.jpg (已删除)
 ```
 
-![删除doro结局](./picture/删除doro结局.png)
+![删除doro结局](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/删除doro结局.png)
 
 #### 4. 列出所有结局
 
@@ -117,7 +117,7 @@ bot主人：列出doro结局
 Bot： [发送合并转发消息，包含所有结局列表]
 ```
 
-![列出所有结局](./picture/列出doro结局.png)
+![列出所有结局](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/列出doro结局.png)
 
 ## 🗂️ 数据结构
 
