@@ -10,16 +10,31 @@
 
 ## 📦 安装方法
 
+### 使用 pip 安装
+
+#### 从 PyPI 安装
+
+```shell
+
+```
+
+#### 从 git仓库 安装
+
+```shell
+
+```
+
 ### 手动安装
 
 1. 克隆仓库：
 
 ```shell
 git clone https://github.com/yourname/nonebot-plugin-doroending.git
+# 备用地址 git clone https://gitee.com/seewhy_ran/doroending_pic_assets.git
 cd nonebot-plugin-doroending
 ```
 
-2. 将`nonebot-plugin-doroending/src/nonebot-plugin-doroending.py`放在你的nb项目的src文件夹下
+2. 将`nonebot-plugin-doroending/`文件夹放在你的nb项目的src文件夹下
 
 3. 安装依赖：
 
@@ -139,7 +154,7 @@ nonebot-plugin-doroending/
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证。详见 [LICENSE](https://license/) 文件。
+本项目采用 MIT 许可证。详见 [LICENSE](https://github.com/SeeWhyRan/nonebot_plugin_doroending/blob/main/LICENSE) 文件。
 
 ## 🐛 问题反馈
 
@@ -152,24 +167,26 @@ nonebot-plugin-doroending/
 ## 💡 TODO
 
 - 发布到社区
-- 可提供下载的预设结局库
-- 对话交互式添加结局
-- 固定每个人的结局改成固定每个人每天的结局
-- 单文件改为多文件
+- 对话交互式添加/删除结局
+- 对话交互式修改结局的中文和英文描述
 
 ## 📈 版本历史
 
-### v0.1.1 (2026-2-5)
+## 📈 版本历史
 
-- 将读取、保存等一系列管理doro结局数据的操作封装到一个类里，为后续编写做准备
-- 支持内存中保存每个用户doro结局，为每天固定结局做准备
+### v0.1.2 (2026-2-5)
+- **新增**：实现真正的每日固定结局
+- **新增**：准备了结局图片文件，启动插件时检测到没有资源会自动从[Github](https://github.com/SeeWhyRan/doroending_pic_assets)或[Gitee](https://gitee.com/seewhy_ran/doroending_pic_assets)上下载
+
+### v0.1.1 (2026-2-5)
+- **重构**：将数据操作封装为 `DoroDataManager` 类，提升代码可维护性
+- **优化**：在内存中缓存用户每日结局，为“每日固定”功能做准备
 
 ### v0.1.0 (2026-2-4)
-
-- 初始版本发布
-- 基础功能：随机获取、添加、删除、列出 doro 结局
+- **首个发布版本**。
+- 实现核心功能：随机获取、添加、删除、列出 doro 结局
 - 支持 OneBot v11 适配器
-- 管理员权限管理
+- 完善的超级用户权限管理
 
 ------
 
