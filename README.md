@@ -1,6 +1,15 @@
+<div align="center">
+
+  <a href="https://v2.nonebot.dev/">
+    <img src="https://v2.nonebot.dev/logo.png" width="200" height="200" alt="nonebot">
+  </a>
+
+
 # **NoneBot-Plugin-DoroEnding**
 
-一个有趣的 NoneBot2 插件，随机获取今日的 doro 结局，并支持bot管理员管理结局库。
+一个有趣的 NoneBot2 插件，随机获取今日的 doro 结局，并支持bot管理员管理结局库
+
+</div>
 
 ## ✨ 功能特性
 
@@ -50,7 +59,7 @@ pip install -e .
 
 ```env
 # 设置超级用户（你的QQ号）
-SUPERUSER="123456789"
+SUPERUSERS=["123456789"]
 ```
 
 ## 📖 使用方法
@@ -119,9 +128,9 @@ Bot： [发送合并转发消息，包含所有结局列表]
 
 ![列出所有结局](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/列出doro结局.png)
 
-## 🗂️ 数据结构
+## 📦 数据结构与资源存放
 
-插件数据存储在 JSON 文件中，格式如下：
+插件数据使用 JSON 格式存储，结构如下：
 
 ```json
 {
@@ -138,17 +147,62 @@ Bot： [发送合并转发消息，包含所有结局列表]
 }
 ```
 
-图片文件保存在 `DoroEndingPic/` 目录下，命名格式为：`{ID:08d}_{english_name}.jpg`
+### 图片资源目录
+
+图片文件存储在以下路径中：
+`data/nonebot_plugin_doroending/DoroEndingPic/`
+
+文件命名规则为：
+`{ID:08d}_{english_name}.jpg`
+
+例如：
+`00000001_example.jpg`
+
+## 📥 手动获取资源（如自动下载失败）
+
+如果插件自动下载失败，你可以从以下仓库手动下载资源文件：
+
+GitHub：`https://github.com/SeeWhyRan/doroending_pic_assets`
+
+Gitee（国内备用）：`https://gitee.com/seewhy_ran/doroending_pic_assets`
+
+### 操作步骤
+下载资源仓库中的 DoroEndingPic/ 文件夹
+
+下载资源仓库中的 doroendings.json 文件
+
+将两者放置在以下目录中：
+`{你的 Bot 根目录}/data/nonebot_plugin_doroending/`
+
+### 最后应该长这样
+
+```
+{你的 Bot 根目录}/
+├── data/
+│   ├── nonebot_plugin_doroending/
+│   │   ├── DoroEndingPic/
+│   │   │   ├── 00000001_english.jpg
+│   │   │   └── ...
+│   │   └── doroendings.json
+│   └── ...（其他插件的数据文件夹）
+├── pyproject.toml
+└── ...（其他项目配置文件与代码文件）
+```
 
 ## 🏗️ 项目结构
 
 ```
 nonebot-plugin-doroending/
 ├── picture/            # README.md中的图片
-├── nonebot_plugin_doroending/
-│   └── src/
-│       └── nonebot_plugin_doroending.py  # 插件代码
-├── pyproject.toml       # 项目配置
+├── dist/               # 构建完的文件
+├── nonebot_plugin_doroending/  # 插件代码
+│   ├── __init__.py
+│   ├── model.py
+│   └── resourse.py
+├── release.sh          # 构建发布脚本
+├── .gitignore          # git忽略文件
+├── pyproject.toml      # 项目配置
+├── requirements.txt    # 项目依赖
 ├── README.md           # 本文件
 └── LICENSE             # MIT许可证
 ```
@@ -170,6 +224,7 @@ nonebot-plugin-doroending/
 - 发布到社区
 - 对话交互式添加/删除结局
 - 对话交互式修改结局的中文和英文描述
+- 支持更多适配器
 
 ## 📈 版本历史
 
@@ -180,7 +235,7 @@ nonebot-plugin-doroending/
 
 ### v0.1.1 (2026-2-5)
 - **重构**：将数据操作封装为 `DoroDataManager` 类，提升代码可维护性
-- **优化**：在内存中缓存用户每日结局，为“每日固定”功能做准备
+- **优化**：在内存中缓存用户每日结局，为“每日固定”做准备
 
 ### v0.1.0 (2026-2-4)
 - **首个发布版本**。
