@@ -162,9 +162,9 @@ Bot： [发送合并转发消息，包含所有结局列表]
 
 如果插件自动下载失败，你可以从以下仓库手动下载资源文件：
 
-GitHub：`https://github.com/SeeWhyRan/doroending_pic_assets`
+[GitHub](https://github.com/SeeWhyRan/doroending_pic_assets)：`https://github.com/SeeWhyRan/doroending_pic_assets`
 
-Gitee（国内备用）：`https://gitee.com/seewhy_ran/doroending_pic_assets`
+[Gitee](https://gitee.com/seewhy_ran/doroending_pic_assets)（国内备用）：`https://gitee.com/seewhy_ran/doroending_pic_assets`
 
 ### 操作步骤
 下载资源仓库中的 DoroEndingPic/ 文件夹
