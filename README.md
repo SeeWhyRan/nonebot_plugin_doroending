@@ -21,7 +21,8 @@
 #### 从 git仓库 安装
 
 ```shell
-
+pip install git+https://github.com/SeeWhyRan/nonebot_plugin_doroending.git
+# 备用地址 pip install git+https://gitee.com/seewhy_ran/nonebot_plugin_doroending.git
 ```
 
 ### 手动安装
@@ -169,8 +170,6 @@ nonebot-plugin-doroending/
 - 发布到社区
 - 对话交互式添加/删除结局
 - 对话交互式修改结局的中文和英文描述
-
-## 📈 版本历史
 
 ## 📈 版本历史
 
