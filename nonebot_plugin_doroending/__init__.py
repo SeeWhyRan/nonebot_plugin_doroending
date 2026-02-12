@@ -1,9 +1,9 @@
-import json
+import json  # noqa: N999
 import random
 from datetime import datetime
+from pathlib import Path
 
-import anyio
-from nonebot import logger, on_command
+from nonebot import get_driver, logger, on_command, require
 from nonebot.adapters.onebot.v11 import (
     Bot,
     GroupMessageEvent,
@@ -13,14 +13,14 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
-from nonebot.plugin import PluginMetadata, get_plugin_config
+from nonebot.plugin import PluginMetadata
 
-from .model import Config, DoroEnding, DoroEndingManager
-from .resourse import download_doro_assets
+from .doro_downloader import download_assets
+from .doro_manager import DoroEnding, DoroEndingManager
 
-# 全局管理器实例
-_doro_manager: DoroEndingManager = DoroEndingManager()
-config = get_plugin_config(Config)
+require("nonebot_plugin_localstore")
+
+import nonebot_plugin_localstore as store
 
 __plugin_meta__ = PluginMetadata(
     name="今日doro结局",
@@ -28,7 +28,6 @@ __plugin_meta__ = PluginMetadata(
     usage="发送“今日doro结局”获取今日的doro结局",
     type="application",
     homepage="https://github.com/SeeWhyRan/nonebot_plugin_doroending",
-    config=Config,
     # 插件配置项类，如无需配置可不填写。
 
     supported_adapters={"~onebot.v11"},
@@ -37,62 +36,51 @@ __plugin_meta__ = PluginMetadata(
     # 若插件可以保证兼容所有适配器（即仅使用基本适配器功能）可不填写，
     # 否则应该列出插件支持的适配器。
 )
-
-__all__ = [
-    "add_doro_ending",
-    "get_doro_ending",
-    "list_doro_endings",
-    "remove_doro_ending",
-]
-
-# 在插件启动时加载
-from nonebot import get_driver
-
 driver = get_driver()
-# 保存加载的数据
-data: dict = {}
-# 保存用户和结局的映射
-user_doro_map: dict = {}
-# 保存当前数据的日期
-current_date: str = ""
 
+# ---------- 统一使用 localstore 数据目录 ----------
+PLUGIN_DATA_DIR = store.get_plugin_data_dir()
+DORO_ENDING_PIC_DIR = PLUGIN_DATA_DIR / "DoroEndingPic"
+JSON_FILE = PLUGIN_DATA_DIR / "doroendings.json"
+DATE_RECORD_FILE = PLUGIN_DATA_DIR / "doro_date_record.json"
+USER_MAP_FILE = PLUGIN_DATA_DIR / "user_doro_map.json"
+
+# 全局管理器
+_doro_manager = DoroEndingManager(data_file = JSON_FILE, pic_dir = DORO_ENDING_PIC_DIR)
+user_doro_map: dict = {}
+current_date: str = ""
+# ---------- 启动时自动下载 ----------
 @driver.on_startup
-async def startup():
-    # 插件初始化
-    global _doro_manager  # noqa: PLW0602
-    global user_doro_map  # noqa: PLW0603
-    global current_date  # noqa: PLW0603
-    loaded = await _doro_manager.load_from_file()
-    # 如果本地没有数据，则尝试从github下载
+async def startup() -> None:
+    """插件初始化：若 JSON 文件不存在则自动下载"""
+    global _doro_manager, user_doro_map, current_date  # noqa: PLW0602, PLW0603
+
+    # 1. 如果数据文件不存在，执行下载
+    if not JSON_FILE.exists():
+        logger.warning("未找到本地结局数据，开始从 GitHub/Gitee 下载...")
+        result = await download_assets(PLUGIN_DATA_DIR)
+        if result["success"]:
+            logger.success(f"资源下载成功，来源: {result['source'].upper()}")
+            logger.info(f"JSON 记录数: {len(result['json_data'] or [])}")
+        else:
+            logger.error(f"资源下载失败: {result['message']}")
+            raise RuntimeError("DoroEnding 插件初始化失败：无法解析资源文件")  # noqa: TRY003
+    else:
+        logger.info("本地结局数据已存在，跳过下载")
+
+    # 2. 加载结局数据
+    loaded = await _doro_manager.load()
     if not loaded:
-        logger.warning("本地无结局数据 即将从github上下载...")
-        result = download_doro_assets(
-            target_dir="./data/nonebot_plugin_doroending",
-            token=config.GITHUB_TOKEN
-            )
-        logger.info(f"最终结果: {result['success']}")
-        logger.info(f"消息: {result['message']}")
-        if result['json_data']:
-            logger.info(f"JSON记录数: {len(result['json_data'])}")
-        logger.info(f"保存路径: {result['local_path']}")
-    # 尝试再次加载数据
-    loaded = await _doro_manager.load_from_file()
-    logger.debug("当前结局数据统计信息：")
-    logger.debug(_doro_manager.get_statistics())
-    logger.debug("结局列表如下")
-    # 加载日期记录
-    current_date = read_dict_from_json(
-        filename="./data/nonebot_plugin_doroending/doro_date_record.json"
-        ).get("date", "")
-    # 加载文件中保存的用户结局映射
-    user_doro_map = read_dict_from_json(
-        filename="./data/nonebot_plugin_doroending/user_doro_map.json"
-        )
+        logger.error("结局数据加载失败，插件可能无法正常工作")
+    else:
+        logger.debug("结局数据加载成功")
+        logger.debug(_doro_manager.get_all())
+
+    # 3. 加载日期记录和用户映射
+    current_date = read_dict_from_json(DATE_RECORD_FILE).get("date", "")
+    user_doro_map = read_dict_from_json(USER_MAP_FILE)
     logger.info(f"加载日期记录: {current_date}")
     logger.info(f"已加载用户结局映射记录数: {len(user_doro_map)}")
-    logger.debug(f"当前用户结局映射: {user_doro_map}")
-    logger.debug(_doro_manager.get_all_endings())
-
     logger.info("doro结局插件已启动")
 
 
@@ -109,16 +97,16 @@ async def handle_doro_ending(
     # 获取当前日期
     global current_date  # noqa: PLW0603
     global _doro_manager  # noqa: PLW0602
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")  # noqa: DTZ005
     # 如果日期已过期，清空用户结局映射并更新日期
     if current_date != today:
-        logger.info(f"日期已过期，清空用户结局映射。原日期: {current_date}, 今天: {today}")
+        logger.info(f"日期已过期，清空用户结局映射。原日期: {current_date}, 今天: {today}")  # noqa: E501
         user_doro_map.clear()
         current_date = today
         # 保存新的日期记录
-        write_dict_to_json({"date": current_date}, filename="./data/nonebot_plugin_doroending/doro_date_record.json")
+        write_dict_to_json({"date": current_date}, file_path=DATE_RECORD_FILE)
         # 清空用户映射文件
-        write_dict_to_json({}, filename="./data/nonebot_plugin_doroending/user_doro_map.json")
+        write_dict_to_json({}, file_path=USER_MAP_FILE)
     # 判断是否已有记录
     # 日志记录当前用户ID和现有的用户结局映射
     logger.debug(f"当前用户ID: {event.user_id}")
@@ -129,13 +117,11 @@ async def handle_doro_ending(
         # 获取用户对应的结局id
         doro_id = user_doro_map[str(event.user_id)]
         # 查找对应的结局信息
-        doro_info = _doro_manager.get_ending_by_id(doro_id)
+        doro_info = _doro_manager.get_by_id(doro_id)
         if doro_info:
-            # 找到结局，返回图片
-            abs_image_path = await anyio.Path(
-                f"./data/nonebot_plugin_doroending/DoroEndingPic/{doro_info.pic}"
-                ).resolve()
-            await get_doro_ending.finish(MessageSegment.image(f"file://{abs_image_path}"))
+            img_path = DORO_ENDING_PIC_DIR / doro_info.pic
+            # 确保文件存在，然后发送
+            await get_doro_ending.finish(MessageSegment.image(img_path.resolve().as_uri()))  # noqa: E501
         else:
             # 如果找不到对应的结局，移除记录
             del user_doro_map[event.user_id]
@@ -143,23 +129,21 @@ async def handle_doro_ending(
     else:
         logger.debug(f"用户（{event.user_id}）没有记录，随机选择结局")
         # 随机选择一个结局
-        data: list[DoroEnding] = _doro_manager.get_all_endings()
-        doro_ending = random.randint(1, _doro_manager.get_statistics()["total"])
+        data: list[DoroEnding] = _doro_manager.get_all()
+        doro_ending = random.randint(1, len(data))
         doro_info = data[doro_ending - 1]
         # 记录用户和结局的映射
         user_doro_map[str(event.user_id)] = doro_info.id
         # 保存映射到文件
         write_dict_to_json(
             user_doro_map,
-            filename="./data/nonebot_plugin_doroending/user_doro_map.json"
+            file_path=USER_MAP_FILE
             )
         logger.debug(f"记录用户（{event.user_id}）的结局ID为 {doro_info.id}")
         # 构建图片路径
-        image_path = await anyio.Path(
-            f"./data/nonebot_plugin_doroending/DoroEndingPic/{doro_info.pic}"
-            ).resolve()
+        img_path = DORO_ENDING_PIC_DIR / doro_info.pic
         # 返回图片消息
-        await get_doro_ending.finish(MessageSegment.image(f"file://{image_path}"))
+        await get_doro_ending.finish(MessageSegment.image(img_path.resolve().as_uri()))
 
 @add_doro_ending.handle()
 # 处理添加doro结局的命令
@@ -209,12 +193,11 @@ async def handle_add_doro_ending(
     logger.debug(
         f"添加doro结局：中文名='{name}' 英文名='{english_name}' 图片URL='{image_url}'")
     try:
-        await _doro_manager.add_ending(
+        await _doro_manager.add(
         name = name,
         english_name = english_name,
         image_url = image_url
         )
-        await _doro_manager.save_to_file()  # 保存数据到文件
         await add_doro_ending.finish("doro结局添加成功！")
     except ValueError as ve:
         await add_doro_ending.finish(f"添加doro结局失败: {ve}")
@@ -234,7 +217,7 @@ async def handle_rdoro_ending(
             "例如：/删除doro结局 123 或 /删除doro结局 结局名称"
         )
     try:
-        await _doro_manager.remove_ending(target)
+        await _doro_manager.remove(target)
         await remove_doro_ending.finish("doro结局删除成功！")
     except ValueError as ve:
         await remove_doro_ending.finish(f"删除doro结局失败: {ve}")
@@ -246,8 +229,8 @@ async def handle_list_doro_endings(
     bot: Bot
 ) -> None:
     # 获取所有结局数据
-    data: list[DoroEnding] = _doro_manager.get_all_endings()
-    tatal = _doro_manager.get_statistics()["total"]
+    data: list[DoroEnding] = _doro_manager.get_all()
+    tatal = len(data)
     if tatal == 0:
         await list_doro_endings.finish("当前没有任何doro结局数据！")
     # 按ID排序
@@ -276,7 +259,7 @@ async def send_forward_msg(
     bot: Bot,
     event: MessageEvent,
     user_message: list[tuple[str, str, Message]],
-):
+) -> None:
     """
     发送 forward 消息
 
@@ -310,39 +293,42 @@ async def send_forward_msg(
             "send_private_forward_msg", user_id=event.user_id, messages=messages
         )
 
-def write_dict_to_json(data_dict, filename="./data/nonebot_plugin_doroending/user_doro_map.json"):
+def write_dict_to_json(data_dict: dict, file_path: Path) -> None:
     """
-    将Python字典写入JSON文件
+    将Python字典写入JSON文件（使用Path对象）
     Args:
         data_dict: 要写入的字典
-        filename: 文件名，默认为 "user_doro_map.json"
+        file_path: Path对象，文件保存路径
     """
     try:
-        with open(filename, 'w', encoding='utf-8') as f:
+        # 自动创建父目录
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open(mode="w", encoding="utf-8") as f:
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
-        logger.debug(f"字典已成功写入 {filename}")
-    except Exception as e:
+        logger.debug(f"字典已成功写入 {file_path}")
+    except ValueError as e:
         logger.error(f"写入文件时出错: {e}")
 
-def read_dict_from_json(filename="./data/nonebot_plugin_doroending/user_doro_map.json"):
+
+def read_dict_from_json(file_path: Path) -> dict:
     """
-    从JSON文件中读取Python字典
+    从JSON文件中读取Python字典（使用Path对象）
     Args:
-        filename: 文件名，默认为 "user_doro_map.json"
+        file_path: Path对象，文件路径
     Returns:
         读取到的字典，如果读取失败则返回空字典
     """
     try:
-        with open(filename, 'r', encoding='utf-8') as f:
+        with file_path.open(mode="r", encoding="utf-8") as f:
             data = json.load(f)
-        logger.debug(f"字典已成功从 {filename} 读取")
-        return data
+        logger.debug(f"字典已成功从 {file_path} 读取")
     except FileNotFoundError:
-        logger.warning(f"文件 {filename} 不存在，返回空字典")
+        logger.warning(f"文件 {file_path} 不存在，返回空字典")
         return {}
     except json.JSONDecodeError:
-        logger.warning(f"文件 {filename} 格式错误，返回空字典")
+        logger.warning(f"文件 {file_path} 格式错误，返回空字典")
         return {}
-    except Exception as e:
+    except ValueError as e:
         logger.error(f"读取文件时出错: {e}")
         return {}
+    return data

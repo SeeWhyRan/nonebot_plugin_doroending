@@ -58,7 +58,7 @@ pip install -e .
 
 
 ```env
-# 设置超级用户（你的QQ号）
+# 设置Nonebot全局超级用户（你的QQ号）
 SUPERUSERS=["123456789"]
 ```
 
@@ -150,7 +150,7 @@ Bot： [发送合并转发消息，包含所有结局列表]
 ### 图片资源目录
 
 图片文件存储在以下路径中：
-`data/nonebot_plugin_doroending/DoroEndingPic/`
+`{你nonebot_plugin_localstore插件配置的资源目录}/nonebot_plugin_doroending/DoroEndingPic/`
 
 文件命名规则为：
 `{ID:08d}_{english_name}.jpg`
@@ -197,8 +197,8 @@ nonebot-plugin-doroending/
 ├── dist/               # 构建完的文件
 ├── nonebot_plugin_doroending/  # 插件代码
 │   ├── __init__.py
-│   ├── model.py
-│   └── resourse.py
+│   ├── doro_downloader.py
+│   └── doro_manager.py
 ├── release.sh          # 构建发布脚本
 ├── .gitignore          # git忽略文件
 ├── pyproject.toml      # 项目配置
@@ -227,6 +227,12 @@ nonebot-plugin-doroending/
 - 支持更多适配器
 
 ## 📈 版本历史
+
+### v0.1.3 (2026-2-13)
+- **优化**：使用nonebot_plugin_localstore获取保存目录
+- **优化**：使用from nonebot.permission import SUPERUSER获取超级用户
+- **优化**：使用aiohttp、aiofiles下载保存资源
+- **重构**：简化了下载类和资源管理类
 
 ### v0.1.2 (2026-2-5)
 - **新增**：实现真正的每日固定结局
