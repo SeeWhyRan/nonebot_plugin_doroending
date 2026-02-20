@@ -19,6 +19,12 @@
 
 ## 📦 安装方法
 
+### 使用 nb 安装（推荐）
+
+```shell
+nb plugin install nonebot-plugin-doroending
+```
+
 ### 使用 pip 安装
 
 #### 从 PyPI 安装
@@ -221,7 +227,6 @@ nonebot-plugin-doroending/
 
 ## 💡 TODO
 
-- 发布到社区
 - 对话交互式添加/删除结局
 - 对话交互式修改结局的中文和英文描述
 - 支持更多适配器
