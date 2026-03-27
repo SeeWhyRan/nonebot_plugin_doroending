@@ -20,15 +20,15 @@ Doro 资源下载器模块
         local_path = result.local_path # 下载根目录
 """
 
-import asyncio
 import json
 import time
-from dataclasses import dataclass
+import asyncio
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Literal, Optional
 
-import aiofiles
 import aiohttp
+import aiofiles
 from nonebot import logger
 
 
@@ -110,7 +110,11 @@ class AssetDownloader:
         for item in items:
             name = item["name"]
             if item.get("type") == "file" or "download_url" in item:
-                raw = f"{self.sources[self.current]['raw']}/{api_path}/{name}" if api_path else f"{self.sources[self.current]['raw']}/{name}"
+                raw = (
+                    f"{self.sources[self.current]['raw']}/{api_path}/{name}"
+                    if api_path
+                    else f"{self.sources[self.current]['raw']}/{name}"
+                )
                 await self._download_file(raw, local_dir / name)
             elif item.get("type") == "dir":
                 sub = f"{api_path}/{name}" if api_path else name
@@ -173,8 +177,11 @@ class AssetDownloader:
                 success, json_data = await self._try_source()
 
         elapsed = time.time() - start
-        msg = f"下载完成，耗时 {elapsed:.1f}s | 成功: {self.downloaded} 跳过: {self.skipped} 失败: {self.failed}" if success \
-               else f"下载失败（已尝试 GitHub 和 Gitee），耗时 {elapsed:.1f}s"
+        msg = (
+            f"下载完成，耗时 {elapsed:.1f}s | 成功: {self.downloaded} 跳过: {self.skipped} 失败: {self.failed}"
+            if success
+            else f"下载失败（已尝试 GitHub 和 Gitee），耗时 {elapsed:.1f}s"
+        )
 
         logger.info(f"{'✅' if success else '❌'} {msg}")
         return DownloadResult(success, msg, self.current, json_data, self.target_dir)

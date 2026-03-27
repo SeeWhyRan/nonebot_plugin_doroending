@@ -1,26 +1,35 @@
-import json  # noqa: N999
 import random
-from datetime import datetime
+import json  # noqa: N999
 from pathlib import Path
+from datetime import datetime
 
-from nonebot import get_driver, logger, on_command, require
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-    GroupMessageEvent,
-    Message,
-    MessageEvent,
-    MessageSegment,
-)
-from nonebot.params import CommandArg
-from nonebot.permission import SUPERUSER
-from nonebot.plugin import PluginMetadata
+from nonebot.adapters import Bot
+from nonebot.params import Depends
+from nonebot.permission import SuperUser
+from nonebot.plugin import PluginMetadata, inherit_supported_adapters
+from nonebot import logger, require, get_driver
 
 from .doro_downloader import download_assets
 from .doro_manager import DoroEnding, DoroEndingManager
 
 require("nonebot_plugin_localstore")
+require("nonebot_plugin_alconna")
+require("nonebot_plugin_uninfo")
 
 import nonebot_plugin_localstore as store
+from nonebot_plugin_uninfo import Uninfo
+from nonebot_plugin_alconna import (
+    Args,
+    Text,
+    Field,
+    Image,
+    Match,
+    Alconna,
+    CustomNode,
+    Subcommand,
+    UniMessage,
+    on_alconna,
+)
 
 __plugin_meta__ = PluginMetadata(
     name="今日doro结局",
@@ -29,8 +38,7 @@ __plugin_meta__ = PluginMetadata(
     type="application",
     homepage="https://github.com/SeeWhyRan/nonebot_plugin_doroending",
     # 插件配置项类，如无需配置可不填写。
-
-    supported_adapters={"~onebot.v11"},
+    supported_adapters=inherit_supported_adapters("nonebot_plugin_alconna"),
     # 支持的适配器集合，其中 `~` 在此处代表前缀 `nonebot.adapters.`，
     # 其余适配器亦按此格式填写。
     # 若插件可以保证兼容所有适配器（即仅使用基本适配器功能）可不填写，
@@ -46,9 +54,11 @@ DATE_RECORD_FILE = PLUGIN_DATA_DIR / "doro_date_record.json"
 USER_MAP_FILE = PLUGIN_DATA_DIR / "user_doro_map.json"
 
 # 全局管理器
-_doro_manager = DoroEndingManager(data_file = JSON_FILE, pic_dir = DORO_ENDING_PIC_DIR)
+_doro_manager = DoroEndingManager(data_file=JSON_FILE, pic_dir=DORO_ENDING_PIC_DIR)
 user_doro_map: dict = {}
 current_date: str = ""
+
+
 # ---------- 启动时自动下载 ----------
 @driver.on_startup
 async def startup() -> None:
@@ -84,21 +94,39 @@ async def startup() -> None:
     logger.info("doro结局插件已启动")
 
 
-get_doro_ending = on_command("今日doro结局")
-add_doro_ending = on_command("添加doro结局", permission=SUPERUSER)
-remove_doro_ending = on_command("删除doro结局", permission=SUPERUSER)
-list_doro_endings = on_command("列出doro结局",  permission=SUPERUSER)
+doro_ending = on_alconna(
+    Alconna(
+        "doro",
+        Subcommand(
+            "add",
+            Args["zh", str, Field(completion=lambda: "请输入中文名")][
+                "en", str, Field(completion=lambda: "请输入英文名")
+            ]["img", Image, Field(completion=lambda: "请发送一张图片")],
+            alias="添加doro结局",
+        ),
+        Subcommand(
+            "remove", Args["id", str, Field(completion=lambda: "请输入要删除的doro结局ID")], alias="删除doro结局"
+        ),
+        Subcommand("list", alias="列出doro结局"),
+    ),
+    use_cmd_start=True,
+    comp_config={"lite": True},
+)
+doro_ending.shortcut("今日doro结局", {"command": "doro", "fuzzy": False, "prefix": True})
+doro_ending.shortcut("添加doro结局", {"command": "doro add", "fuzzy": True, "prefix": True})
+doro_ending.shortcut("删除doro结局", {"command": "doro remove", "fuzzy": True, "prefix": True})
+doro_ending.shortcut("列出doro结局", {"command": "doro list", "fuzzy": True, "prefix": True})
 
-@get_doro_ending.handle()
+
+@doro_ending.assign("$main")
 # 处理获取doro结局的命令
-async def handle_doro_ending(
-    event: MessageEvent
-) -> None:
+async def handle_doro_ending(user: Uninfo):
     # 获取当前日期
     global current_date  # noqa: PLW0603
     global _doro_manager  # noqa: PLW0602
     today = datetime.now().strftime("%Y-%m-%d")  # noqa: DTZ005
     # 如果日期已过期，清空用户结局映射并更新日期
+    uid = user.user.id
     if current_date != today:
         logger.info(f"日期已过期，清空用户结局映射。原日期: {current_date}, 今天: {today}")  # noqa: E501
         user_doro_map.clear()
@@ -109,189 +137,101 @@ async def handle_doro_ending(
         write_dict_to_json({}, file_path=USER_MAP_FILE)
     # 判断是否已有记录
     # 日志记录当前用户ID和现有的用户结局映射
-    logger.debug(f"当前用户ID: {event.user_id}")
+    logger.debug(f"当前用户ID: {user.user.id}")
     logger.debug(f"现有用户结局映射: {user_doro_map}")
     # 如果用户已有记录，直接使用已有的结局
-    if str(event.user_id) in user_doro_map:
-        logger.debug(f"用户（{event.user_id}）已有记录，使用已有结局")
+    if uid in user_doro_map:
+        logger.debug(f"用户（{user.user.id}）已有记录，使用已有结局")
         # 获取用户对应的结局id
-        doro_id = user_doro_map[str(event.user_id)]
+        doro_id = user_doro_map[uid]
         # 查找对应的结局信息
         doro_info = _doro_manager.get_by_id(doro_id)
         if doro_info:
             img_path = DORO_ENDING_PIC_DIR / doro_info.pic
             # 确保文件存在，然后发送
-            await get_doro_ending.finish(MessageSegment.image(img_path.resolve().as_uri()))  # noqa: E501
+            await UniMessage.image(path=img_path).finish()
         else:
             # 如果找不到对应的结局，移除记录
-            del user_doro_map[event.user_id]
-            logger.debug(f"用户（{event.user_id}）的结局记录无效，重新选择结局")
+            del user_doro_map[uid]
+            logger.debug(f"用户（{uid}）的结局记录无效，重新选择结局")
     else:
-        logger.debug(f"用户（{event.user_id}）没有记录，随机选择结局")
+        logger.debug(f"用户（{uid}）没有记录，随机选择结局")
         # 随机选择一个结局
         data: list[DoroEnding] = _doro_manager.get_all()
         doro_ending = random.randint(1, len(data))
         doro_info = data[doro_ending - 1]
         # 记录用户和结局的映射
-        user_doro_map[str(event.user_id)] = doro_info.id
+        user_doro_map[uid] = doro_info.id
         # 保存映射到文件
-        write_dict_to_json(
-            user_doro_map,
-            file_path=USER_MAP_FILE
-            )
-        logger.debug(f"记录用户（{event.user_id}）的结局ID为 {doro_info.id}")
+        write_dict_to_json(user_doro_map, file_path=USER_MAP_FILE)
+        logger.debug(f"记录用户（{uid}）的结局ID为 {doro_info.id}")
         # 构建图片路径
         img_path = DORO_ENDING_PIC_DIR / doro_info.pic
         # 返回图片消息
-        await get_doro_ending.finish(MessageSegment.image(img_path.resolve().as_uri()))
+        await UniMessage.image(path=img_path).finish()
 
-@add_doro_ending.handle()
+
+@doro_ending.assign("add")
 # 处理添加doro结局的命令
 async def handle_add_doro_ending(
-    event: MessageEvent,
-    args: Message = CommandArg()
-    ) -> None:
-    # 获取原始消息
-    raw_message = event.raw_message
-    # 分离命令部分，获取参数
-    cmd_len = len("/添加doro结局")
-    params = raw_message[cmd_len:].strip()
-    # 检查是否有参数
-    if not params:
-        await add_doro_ending.finish(
-            "请提供两个名字和一张图片，格式：/添加doro结局 中文名 英文名 [图片]"
-            )
-    # 检查消息中是否有图片
-    has_image = False
-    image_url = None
-    # 从事件消息中提取图片
-    for segment in event.message:
-        if segment.type == "image":
-            has_image = True
-            # 获取图片URL（不同适配器可能有不同字段）
-            if "url" in segment.data:
-                image_url = segment.data["url"]
-            elif "file" in segment.data:
-                image_url = segment.data["file"]
-            break
-    if not has_image:
-        await add_doro_ending.finish(
-            "请提供一张图片！格式：/添加doro结局 中文名 英文名 [图片]"
-            )
-    # 提取纯文本部分（去除图片CQ码）
-    # 先获取纯文本参数
-    text_args = args.extract_plain_text().strip()
-    if not text_args:
-        await add_doro_ending.finish("请提供两个名字，用空格隔开！")
-    # 分割名字
-    name_parts = text_args.split()
-    min_name_count = 2
-    if len(name_parts) < min_name_count:
-        await add_doro_ending.finish("请提供两个名字，用空格隔开！")
-    name = name_parts[0]
-    english_name = name_parts[1]
-    logger.debug(
-        f"添加doro结局：中文名='{name}' 英文名='{english_name}' 图片URL='{image_url}'")
-    try:
-        await _doro_manager.add(
-        name = name,
-        english_name = english_name,
-        image_url = image_url
-        )
-        await add_doro_ending.finish("doro结局添加成功！")
-    except ValueError as ve:
-        await add_doro_ending.finish(f"添加doro结局失败: {ve}")
-
-@remove_doro_ending.handle()
-# 处理删除doro结局的命令
-async def handle_rdoro_ending(
-    args: Message = CommandArg()
+    zh: Match[str], en: Match[str], img: Match[Image], is_superuser: bool = Depends(SuperUser())
 ) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
+    logger.debug(f"添加doro结局：中文名='{zh.result}' 英文名='{en.result}' 图片URL='{img.result.url}'")
+    try:
+        await _doro_manager.add(name=zh.result, english_name=en.result, image_url=img.result.url)
+        await UniMessage(f"doro结局 '{zh.result}' 添加成功！").finish()
+    except ValueError as ve:
+        await UniMessage(f"添加doro结局失败: {ve}").finish()
+
+
+@doro_ending.assign("remove")
+# 处理删除doro结局的命令
+async def handle_remove_doro_ending(id: Match[str], is_superuser: bool = Depends(SuperUser())) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
     # 获取参数
-    target = args.extract_plain_text().strip()
+    target = id.result
     # 检查是否提供了参数
     if not target:
-        await remove_doro_ending.finish(
+        await UniMessage(
             "请提供要删除的doro结局的ID或中文名\n"
             "格式：/删除doro结局 [ID或中文名]\n"
             "例如：/删除doro结局 123 或 /删除doro结局 结局名称"
-        )
+        ).finish()
     try:
         await _doro_manager.remove(target)
-        await remove_doro_ending.finish("doro结局删除成功！")
+        await UniMessage("doro结局删除成功！").finish()
     except ValueError as ve:
-        await remove_doro_ending.finish(f"删除doro结局失败: {ve}")
+        await UniMessage(f"删除doro结局失败: {ve}").finish()
 
-@list_doro_endings.handle()
+
+@doro_ending.assign("list")
 # 处理列出doro结局的命令
-async def handle_list_doro_endings(
-    event: MessageEvent,
-    bot: Bot
-) -> None:
+async def handle_list_doro_endings(bot: Bot, is_superuser: bool = Depends(SuperUser())) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
     # 获取所有结局数据
     data: list[DoroEnding] = _doro_manager.get_all()
     tatal = len(data)
     if tatal == 0:
-        await list_doro_endings.finish("当前没有任何doro结局数据！")
+        await UniMessage("当前没有任何doro结局数据！").finish()
     # 按ID排序
     data.sort(key=lambda x: x.id)
     # 构建合并转发节点列表
     nodes = []
-    nodes.append(
-        ("doro结局", bot.self_id, Message("以下是所有doro结局"))
-    )
-    # 每50个结局放一条消息
+    nodes.append(CustomNode(bot.self_id, "doro结局", "以下是所有doro结局"))
+    # 每50个结局放一条合并消息
     split_num = 50
-    pair = []
-    for idx, data_item in enumerate(data, 1):
-        msg = (
-            f"{data_item.id}. {data_item.name}\n"
-        )
-        pair.append(msg)
-        if len(pair) == split_num or idx == len(data):
-            nodes.append(("doro结局", bot.self_id, Message("".join(pair))))
-            pair = []
-    # 发送合并转发消息
-    await send_forward_msg(bot, event, nodes)
-    await list_doro_endings.finish()
+    msg_list = [
+        UniMessage(Text(f"{item.id}. {item.name}\n") + Image(path=DORO_ENDING_PIC_DIR / item.pic)) for item in data
+    ]
+    split_msg_list = [msg_list[i : i + split_num] for i in range(0, tatal, split_num)]
+    for data_item in split_msg_list:
+        nodes = [CustomNode(bot.self_id, "doro结局", msg) for msg in data_item]
+        await UniMessage.reference(*nodes).send()
 
-async def send_forward_msg(
-    bot: Bot,
-    event: MessageEvent,
-    user_message: list[tuple[str, str, Message]],
-) -> None:
-    """
-    发送 forward 消息
-
-    > 参数：
-        - bot: Bot 对象
-        - event: MessageEvent 对象
-        - user_message: 合并消息的用户信息列表
-
-    > 返回值：
-        - 成功：返回消息发送结果
-        - 失败：抛出异常
-    """
-
-    def to_json(info: tuple[str, str, Message]):
-        """
-        将消息转换为 forward 消息的 json 格式
-        """
-        return {
-            "type": "node",
-            "data": {"name": info[0], "uin": info[1], "content": info[2]},
-        }
-
-    messages = [to_json(info) for info in user_message]
-
-    if isinstance(event, GroupMessageEvent):
-        await bot.call_api(
-            "send_group_forward_msg", group_id=event.group_id, messages=messages
-        )
-    else:
-        await bot.call_api(
-            "send_private_forward_msg", user_id=event.user_id, messages=messages
-        )
 
 def write_dict_to_json(data_dict: dict, file_path: Path) -> None:
     """

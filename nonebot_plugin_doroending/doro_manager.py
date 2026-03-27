@@ -30,15 +30,15 @@ Doro 结局管理器模块
 - 所有文件读写均为异步非阻塞，适合在异步框架（如 NoneBot）中使用。
 """
 
-import imghdr
-import json
 import re
-from dataclasses import asdict, dataclass
+import json
+import imghdr
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union, Optional
+from dataclasses import asdict, dataclass
 
-import aiohttp
 import anyio
+import aiohttp
 from nonebot import logger
 
 
@@ -114,10 +114,7 @@ class DoroEndingManager:
 
     def search(self, keyword: str) -> list[DoroEnding]:
         keyword = keyword.lower()
-        return [
-            e for e in self._endings
-            if keyword in e.name.lower() or keyword in e.english_name.lower()
-        ]
+        return [e for e in self._endings if keyword in e.name.lower() or keyword in e.english_name.lower()]
 
     # ------------------------------------------------------------------
     # 增删改
@@ -179,10 +176,7 @@ class DoroEndingManager:
         return True
 
     async def update(
-        self,
-        ending_id: int,
-        name: Optional[str] = None,
-        english_name: Optional[str] = None
+        self, ending_id: int, name: Optional[str] = None, english_name: Optional[str] = None
     ) -> DoroEnding:
         ending = self.get_by_id(ending_id)
         if not ending:
@@ -221,8 +215,7 @@ class DoroEndingManager:
     async def _download_image(self, url: str, save_path: Path) -> Optional[Path]:
         timeout = aiohttp.ClientTimeout(total=30)
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as session, \
-                       session.get(url) as resp:
+            async with aiohttp.ClientSession(timeout=timeout) as session, session.get(url) as resp:
                 resp.raise_for_status()
                 data = await resp.read()
                 if len(data) > 10 * 1024 * 1024:  # 10MB 限制
