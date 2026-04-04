@@ -1,3 +1,4 @@
 nonebot_plugin_doroending.egg-info/*
 test_bot/*
 .pypirc
+nonebot_plugin_doroending/__pycache__/*

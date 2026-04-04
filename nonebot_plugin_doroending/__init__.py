@@ -9,9 +9,6 @@ from nonebot.permission import SuperUser
 from nonebot.plugin import PluginMetadata, inherit_supported_adapters
 from nonebot import logger, require, get_driver
 
-from .doro_downloader import download_assets
-from .doro_manager import DoroEnding, DoroEndingManager
-
 require("nonebot_plugin_localstore")
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_uninfo")
@@ -28,8 +25,12 @@ from nonebot_plugin_alconna import (
     CustomNode,
     Subcommand,
     UniMessage,
+    AlconnaMatcher,
     on_alconna,
 )
+
+from .doro_downloader import download_assets
+from .doro_manager import DoroEnding, DoroEndingManager
 
 __plugin_meta__ = PluginMetadata(
     name="今日doro结局",
@@ -99,14 +100,24 @@ doro_ending = on_alconna(
         "doro",
         Subcommand(
             "add",
-            Args["zh", str, Field(completion=lambda: "请输入中文名")][
-                "en", str, Field(completion=lambda: "请输入英文名")
-            ]["img", Image, Field(completion=lambda: "请发送一张图片")],
+            Args["zh?", str, Field(completion=lambda: "请输入中文名")][
+                "en?", str, Field(completion=lambda: "请输入英文名")
+            ]["img?", Image, Field(completion=lambda: "请发送一张图片")],
             alias="添加doro结局",
         ),
         Subcommand(
-            "remove", Args["id", str, Field(completion=lambda: "请输入要删除的doro结局ID")], alias="删除doro结局"
+            "remove",
+            Args["id?", str, Field(completion=lambda: "请输入要删除的doro结局ID或中文名")],
+            alias="删除doro结局",
         ),
+        Subcommand(
+            "update",
+            Args["id?", str, Field(completion=lambda: "请输入要修改的doro结局ID")][
+                "field?", str, Field(completion=lambda: "请输入 1(中文名) 或 2(英文名)")
+            ]["value?", str, Field(completion=lambda: "请输入新的名称")],
+            alias="修改doro结局",
+        ),
+        Subcommand("help", alias="doro结局帮助"),
         Subcommand("list", alias="列出doro结局"),
     ),
     use_cmd_start=True,
@@ -116,6 +127,13 @@ doro_ending.shortcut("今日doro结局", {"command": "doro", "fuzzy": False, "pr
 doro_ending.shortcut("添加doro结局", {"command": "doro add", "fuzzy": True, "prefix": True})
 doro_ending.shortcut("删除doro结局", {"command": "doro remove", "fuzzy": True, "prefix": True})
 doro_ending.shortcut("列出doro结局", {"command": "doro list", "fuzzy": True, "prefix": True})
+doro_ending.shortcut("修改doro结局", {"command": "doro update", "fuzzy": True, "prefix": True})
+doro_ending.shortcut("doro结局帮助", {"command": "doro help", "fuzzy": True, "prefix": True})
+
+# 为子命令创建独立 matcher，避免不同子命令之间的会话状态相互干扰
+add_cmd = doro_ending.dispatch("add")
+remove_cmd = doro_ending.dispatch("remove")
+update_cmd = doro_ending.dispatch("update")
 
 
 @doro_ending.assign("$main")
@@ -171,40 +189,190 @@ async def handle_doro_ending(user: Uninfo):
         await UniMessage.image(path=img_path).finish()
 
 
-@doro_ending.assign("add")
+@add_cmd.handle()
 # 处理添加doro结局的命令
 async def handle_add_doro_ending(
-    zh: Match[str], en: Match[str], img: Match[Image], is_superuser: bool = Depends(SuperUser())
+    matcher: AlconnaMatcher,
+    zh: Match[str],
+    en: Match[str],
+    img: Match[Image],
+    is_superuser: bool = Depends(SuperUser()),
 ) -> None:
     if not is_superuser:
         await UniMessage.text("该指令仅超管可用").finish()
-    logger.debug(f"添加doro结局：中文名='{zh.result}' 英文名='{en.result}' 图片URL='{img.result.url}'")
+    # 将已提供的参数写入会话上下文
+    if zh.available:
+        matcher.set_path_arg("add.zh", zh.result)
+    if en.available:
+        matcher.set_path_arg("add.en", en.result)
+    if img.available:
+        matcher.set_path_arg("add.img", img.result)
+
+# 交互式补全中文名
+@add_cmd.got_path("add.zh", prompt="请输入结局的中文名：")
+async def got_add_zh(matcher: AlconnaMatcher, zh: str) -> None:
+    # 支持取消当前添加流程
+    if zh.strip() in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局添加。").finish()
+        return
+    matcher.set_path_arg("add.zh", zh)
+
+@add_cmd.got_path("add.en", prompt="请输入结局的英文名：")
+async def got_add_en(matcher: AlconnaMatcher, en: str) -> None:
+    if en.strip() in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局添加。").finish()
+        return
+    matcher.set_path_arg("add.en", en)
+
+@add_cmd.got_path("add.img", prompt="请发送一张结局图片：")
+async def got_add_img(
+    zh: str,
+    en: str,
+    img: Image,
+    is_superuser: bool = Depends(SuperUser()),
+) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
+    logger.debug(f"添加doro结局：中文名='{zh}' 英文名='{en}' 图片URL='{img.url}'")
     try:
-        await _doro_manager.add(name=zh.result, english_name=en.result, image_url=img.result.url)
-        await UniMessage(f"doro结局 '{zh.result}' 添加成功！").finish()
+        await _doro_manager.add(name=zh, english_name=en, image_url=img.url)
+        await UniMessage(f"doro结局 '{zh}' 添加成功！").finish()
     except ValueError as ve:
         await UniMessage(f"添加doro结局失败: {ve}").finish()
 
 
-@doro_ending.assign("remove")
+@remove_cmd.handle()
 # 处理删除doro结局的命令
-async def handle_remove_doro_ending(id: Match[str], is_superuser: bool = Depends(SuperUser())) -> None:
+async def handle_remove_doro_ending(
+    matcher: AlconnaMatcher,
+    id: Match[str],
+    is_superuser: bool = Depends(SuperUser()),
+) -> None:
     if not is_superuser:
         await UniMessage.text("该指令仅超管可用").finish()
-    # 获取参数
-    target = id.result
-    # 检查是否提供了参数
-    if not target:
-        await UniMessage(
-            "请提供要删除的doro结局的ID或中文名\n"
-            "格式：/删除doro结局 [ID或中文名]\n"
-            "例如：/删除doro结局 123 或 /删除doro结局 结局名称"
-        ).finish()
+    if id.available:
+        matcher.set_path_arg("remove.id", id.result)
+
+@remove_cmd.got_path("remove.id", prompt="请输入要删除的doro结局ID或中文名：")
+async def got_remove_id(id: str, is_superuser: bool = Depends(SuperUser())) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
+    if id.strip() in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局删除。").finish()
+        return
+    # 支持通过数字 ID 或中文名删除
+    target: int | str
+    if id.isdigit():
+        target = int(id)
+    else:
+        target = id
     try:
-        await _doro_manager.remove(target)
-        await UniMessage("doro结局删除成功！").finish()
-    except ValueError as ve:
+        success = await _doro_manager.remove(target)
+    except ValueError as ve:  # 兼容管理器可能抛出的异常
         await UniMessage(f"删除doro结局失败: {ve}").finish()
+        return
+
+    if success:
+        await UniMessage("doro结局删除成功！").finish()
+    else:
+        await UniMessage("未找到指定的doro结局，请检查ID或名称是否正确。").finish()
+
+@update_cmd.handle()
+# 处理修改doro结局的命令
+async def handle_update_doro_ending(
+    matcher: AlconnaMatcher,
+    id: Match[str],
+    is_superuser: bool = Depends(SuperUser()),
+) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
+    if id.available:
+        matcher.set_path_arg("update.id", id.result)
+
+@update_cmd.got_path("update.id", prompt="请输入要修改的doro结局ID：")
+async def got_update_id(matcher: AlconnaMatcher, id: str) -> None:
+    if id.strip() in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局修改。").finish()
+        return
+    # 仅支持通过数字 ID 修改
+    if not id.isdigit():
+        await matcher.reject("ID 应为数字，请重新输入：")
+    ending_id = int(id)
+    if not _doro_manager.get_by_id(ending_id):
+        await matcher.reject("未找到该 ID 的 doro 结局，请重新输入有效的 ID：")
+    matcher.set_path_arg("update.id", ending_id)
+
+
+@update_cmd.got_path("update.field", prompt="要修改什么？\n1. 中文名\n2. 英文名")
+async def got_update_field(matcher: AlconnaMatcher, field: str) -> None:
+    choice = field.strip()
+    if choice in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局修改。").finish()
+        return
+    if choice in {"1", "中文", "中文名"}:
+        matcher.set_path_arg("update.field", "name")
+    elif choice in {"2", "英文", "英文名", "english", "en"}:
+        matcher.set_path_arg("update.field", "english_name")
+    else:
+        await matcher.reject("无效的选项，请输入 1（中文名）或 2（英文名）：")
+
+@update_cmd.got_path("update.value", prompt="请输入新的名称：")
+async def got_update_value(
+    id: int,
+    field: str,
+    value: str,
+    is_superuser: bool = Depends(SuperUser()),
+) -> None:
+    if not is_superuser:
+        await UniMessage.text("该指令仅超管可用").finish()
+
+    if value.strip() in {"取消", "/取消", "结束", "算了", "cancel", "退出"}:
+        await UniMessage.text("已取消本次 doro 结局修改。").finish()
+        return
+
+    update_kwargs: dict[str, str] = {}
+    if field == "name":
+        update_kwargs["name"] = value
+        field_cn = "中文名"
+    elif field == "english_name":
+        update_kwargs["english_name"] = value
+        field_cn = "英文名"
+    else:
+        await UniMessage("未知的修改类型，请重新开始命令。").finish()
+        return
+
+    try:
+        ending = await _doro_manager.update(id, **update_kwargs)
+    except ValueError as ve:
+        await UniMessage(f"修改doro结局失败: {ve}").finish()
+        return
+
+    await UniMessage(
+        f"doro结局修改成功！\nID: {ending.id}\n新的{field_cn}: {value}"
+    ).finish()
+
+
+@doro_ending.assign("help")
+async def handle_doro_help(is_superuser: bool = Depends(SuperUser())) -> None:
+    """根据用户身份返回 doro 结局帮助列表。"""
+
+    lines: list[str] = [
+        "doro 结局指令列表：",
+        "- 今日doro结局：获取今日的 doro 结局",
+        "- doro结局帮助：查看本帮助",
+    ]
+
+    if is_superuser:
+        lines.extend(
+            [
+                "- 添加doro结局：添加新的结局，可一次性提供参数或对话式补全",
+                "- 删除doro结局：按 ID 或中文名删除结局，支持对话式补全",
+                "- 修改doro结局：按 ID 修改结局中文名/英文名，支持对话式补全",
+                "- 列出doro结局：以合并转发形式列出所有结局",
+            ]
+        )
+
+    await UniMessage("\n".join(lines)).finish()
 
 
 @doro_ending.assign("list")

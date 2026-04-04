@@ -75,9 +75,11 @@ SUPERUSERS=["123456789"]
 | 命令           | 功能                           | 权限     | 示例                                        |
 | :------------- | :----------------------------- | :------- | :------------------------------------------ |
 | `今日doro结局` | 随机获取一个 doro 结局         | 所有人   | `今日doro结局`                              |
+| `doro结局帮助` | 查看 doro 相关指令列表         | 所有人   | `doro结局帮助` 或 `/doro help`             |
 | `列出doro结局` | 列出所有 doro 结局（合并转发） | 超级用户 | `列出doro结局`                              |
-| `添加doro结局` | 添加新的 doro 结局             | 超级用户 | `添加doro结局 结局名 英文名 [图片]`         |
-| `删除doro结局` | 删除指定的 doro 结局           | 超级用户 | `删除doro结局 123` 或 `删除doro结局 结局名` |
+| `添加doro结局` | 添加新的 doro 结局             | 超级用户 | `添加doro结局 结局名 英文名 [图片]` 或对话式 |
+| `删除doro结局` | 删除指定的 doro 结局           | 超级用户 | `删除doro结局 123` 或 `删除doro结局 结局名` 或对话式 |
+| `修改doro结局` | 修改结局的中文名或英文名       | 超级用户 | `修改doro结局 123` 或对话式                 |
 
 ### 详细说明
 
@@ -111,16 +113,31 @@ Bot：
 - 需要同时提供文字和图片
 - 会自动生成唯一 ID
 
+**对话交互式添加：**
+
+现在可以只发送命令开头，让 Bot 逐步引导你补全信息：
+
+```
+bot主人：添加doro结局
+Bot： 请输入结局的中文名：
+bot主人：欧润几结局
+Bot： 请输入结局的英文名：
+bot主人：OrangeEnd
+Bot： 请发送一张结局图片：
+bot主人：[发送图片]
+Bot： doro结局 '欧润几结局' 添加成功！
+```
+
 #### 3. 删除结局
 
 ```
 bot主人：删除doro结局 3（或删除doro结局 欧润几结局）
 Bot：
-	✅ doro结局已成功删除
-	ID: 3
-	中文名: 欧润几结局
-	英文名: OrangeEnd
-	图片文件: 00000003_fired.jpg (已删除)
+  ✅ doro结局已成功删除
+  ID: 3
+  中文名: 欧润几结局
+  英文名: OrangeEnd
+  图片文件: 00000003_fired.jpg (已删除)
 ```
 
 ![删除doro结局](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/删除doro结局.png)
@@ -133,6 +150,34 @@ Bot： [发送合并转发消息，包含所有结局列表]
 ```
 
 ![列出所有结局](https://raw.githubusercontent.com/SeeWhyRan/nonebot_plugin_doroending/main/picture/列出doro结局.png)
+
+#### 5. 修改结局
+
+```
+bot主人：修改doro结局 3
+Bot： 要修改什么？
+1. 中文名
+2. 英文名
+bot主人：1
+Bot： 请输入新的中文名：
+bot主人：新中文名
+Bot： doro结局修改成功！
+```
+
+**对话交互式**：如果不提供ID，Bot会引导输入ID，然后选择修改项。
+
+#### 6. 查看 doro 帮助
+
+普通用户与超管看到的帮助内容不同：
+
+```
+用户：doro结局帮助
+Bot：
+  doro 结局指令列表：
+  - 今日doro结局：获取今日的 doro 结局
+  - doro结局帮助：查看本帮助
+  （如果你是超管，还会额外看到添加/删除/修改/列出等管理指令说明）
+```
 
 ## 📦 数据结构与资源存放
 
@@ -222,16 +267,16 @@ nonebot-plugin-doroending/
 如果您遇到任何问题或有建议，请通过以下方式反馈：
 
 1. [提交 Issue](https://github.com/SeeWhyRan/nonebot_plugin_doroending/issues)
-2. 在 NoneBot 官方社区讨论
-3. 联系作者邮箱
+2. 联系作者邮箱
 
 ## 💡 TODO
-
-- 对话交互式添加/删除结局
-- 对话交互式修改结局的中文和英文描述
-- 支持更多适配器
+（暂无）
 
 ## 📈 版本历史
+### v0.2.0 (2026-4-04)
+- **新增**：集成 `nonebot_plugin_alconna`，通过 `inherit_supported_adapters("nonebot_plugin_alconna")` 继承 Alconna 的适配器列表，增强多平台适配能力（例如 OneBot v11 等）。
+- **新增**：支持 `添加doro结局` / `删除doro结局` / `修改doro结局` 的对话交互式参数补全，当命令中缺少必要信息时，Bot 会逐步询问并补全。
+- **新增**：`doro结局帮助` 指令，根据调用者是否为超级用户，展示不同的 doro 结局指令列表。
 
 ### v0.1.3 (2026-2-13)
 - **优化**：使用nonebot_plugin_localstore获取保存目录
